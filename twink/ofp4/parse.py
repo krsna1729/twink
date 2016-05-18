@@ -82,6 +82,8 @@ def parse(message, offset=0):
 		return ofp_queue_get_config_request(message, cursor)
 	elif header.type == OFPT_QUEUE_GET_CONFIG_REPLY:
 		return ofp_queue_get_config_reply(message, cursor)
+	elif header.type == OFPT_ROLE_REQUEST:
+		return ofp_role_request(message, cursor)
 	elif header.type in (OFPT_SET_ASYNC, OFPT_GET_ASYNC_REPLY):
 		return ofp_async_config(message, cursor)
 	elif header.type == OFPT_METER_MOD:
@@ -506,7 +508,7 @@ def ofp_multipart_request(message, offset=0):
 	elif type == OFPMP_GROUP:
 		body = ofp_group_stats_request(message, cursor)
 	elif type in (OFPMP_METER, OFPMP_METER_CONFIG):
-		body = ofp_meter_multipart_requests(message, cursor)
+		body = ofp_meter_multipart_request(message, cursor)
 	elif type == OFPMP_TABLE_FEATURES:
 		body = []
 		while cursor.offset < offset + header.length:
