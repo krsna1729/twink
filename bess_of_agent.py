@@ -8,6 +8,7 @@ import threading
 import binascii
 import logging
 import signal
+import errno
 import time
 import sys
 import os
@@ -46,6 +47,7 @@ def connect_bess():
         s.connect()
     except s.APIError as e:
         print >> sys.stderr, e.message
+        sys.exit()
     else:
         return s
 
@@ -123,7 +125,14 @@ def of_agent_start(ctl_ip='127.0.0.1', port=6653):
 
     global channel
     socket = twink.sched.socket
-    s = socket.create_connection((ctl_ip, port),)
+    try:
+        s = socket.create_connection((ctl_ip, port),)
+    except socket.error as err:
+        if err.errno != errno.ECONNREFUSED:
+            raise err
+        print 'Is the controller running at %s:%d' % (ctl_ip, port)
+        return errno.ECONNREFUSED
+
     ch = type("Switch", (
         twink.AutoEchoChannel,
         twink.LoggingChannel,), {
@@ -164,7 +173,9 @@ if __name__ == "__main__":
 
     print 'Initial list of Openflow ports', of_ports
 
-    of_agent_start()
+    while of_agent_start() == errno.ECONNREFUSED:
+        pass
+
 
     # TODO: Connect to BESS and create PACKET_[IN,OUT] ports using UNIX socket for all non-LOCAL ports
     # TODO: Start a thread that will select poll on all of those UNIX sockets
