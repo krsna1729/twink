@@ -8,6 +8,7 @@ import threading
 import binascii
 import logging
 import signal
+import socket
 import errno
 import time
 import sys
@@ -18,10 +19,12 @@ logging.basicConfig(level=logging.ERROR)
 PHY_NAME = "dpif"
 
 ofp_port_names = '''port_no hw_addr name config state
-                    curr advertised supported peer curr_speed max_speed'''
+                    curr advertised supported peer curr_speed max_speed
+                    pkt_inout_socket'''
 of_port = namedtuple('of_port', ofp_port_names)
 default_port = of_port('<port no>', '<mac address>', '<port name>', 0, 0,
-                       0x802, 0, 0, 0, 0, 0)
+                       0x802, 0, 0, 0, 0, 0,
+                       None)
 of_ports = {
     OFPP_LOCAL: default_port._replace(port_no=OFPP_LOCAL, hw_addr=binascii.a2b_hex("0000deadbeef"), name='br-int', curr=0),
     1: default_port._replace(port_no=1, hw_addr=binascii.a2b_hex("0000deaddead"), name='vxlan', curr=0),
@@ -55,12 +58,40 @@ def connect_bess():
 def init_phy_port(bess, name, port_id):
 
     try:
-        result = bess.create_port('PMD', name, {'port_id': port_id })
+        result = bess.create_port('PMD', name, {'port_id': port_id})
+        bess.resume_all()
     except (bess.APIError, bess.Error)as err:
         print err.message
         return {'name': None}
     else:
         return result
+
+
+PKTINOUT_NAME = 'pktinout_%s'
+SOCKET_PATH = '/tmp/bess_unix_' + PKTINOUT_NAME
+
+def init_pktinout_port(bess, name):
+
+    # br-int alone or vxlan too?
+    if name == 'br-int':
+        return None, None
+
+    try:
+        result = bess.create_port('UnixSocket', PKTINOUT_NAME % name, {'path': '@' + SOCKET_PATH % name})
+        bess.resume_all()
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+        s.connect('\0' + SOCKET_PATH % name)
+    except (bess.APIError, bess.Error, socket.error) as err:
+        print err
+        return {'name': None}, None
+    else:
+        # TODO: Handle VxLAN PacketOut if Correct/&Reqd. Create PI connect PI_pktinout_vxlan-->Encap()-->PO_dpif
+        if name != 'vxlan':
+            bess.create_module('PortInc', 'PI_' + PKTINOUT_NAME % name, {'port': PKTINOUT_NAME % name})
+            bess.create_module('PortOut', 'PO_' + name, {'port': name})
+            bess.connect_modules('PI_' + PKTINOUT_NAME % name, 'PO_' + name)
+        bess.resume_all()
+        return result, s
 
 
 def switch_proc(message, ofchannel):
@@ -103,7 +134,12 @@ def switch_proc(message, ofchannel):
                          b.ofp_desc("UC Berkeley", "Intel Xeon", "BESS", "commit-6e343", None)))
 
     elif msg.header.type ==  OFPT_PACKET_OUT:
-        print msg
+        index = msg.actions[0].port
+        print "Packet out OF Port %d, Len:%d" % (index, len(msg.data))
+        sock = of_ports[index].pkt_inout_socket
+        sent = sock.send(msg.data)
+        if sent != len(msg.data):
+            print "Incomplete Transmission Sent:%d, Len:%d" % (sent, len(msg.data))
 
     elif msg.header.type == OFPT_HELLO:
         pass
@@ -157,10 +193,11 @@ def print_stupid():
 if __name__ == "__main__":
 
     dp = connect_bess()
+    dp.resume_all()
 
     def cleanup(*args):
-        dp.destroy_port(PHY_NAME)
-        print "Deleted PMD port %s" % PHY_NAME
+        dp.pause_all()
+        dp.reset_all()
         sys.exit()
 
     signal.signal(signal.SIGINT, cleanup)
@@ -172,6 +209,11 @@ if __name__ == "__main__":
         print 'Failed to create PMD port. Check if it exists already'
 
     print 'Initial list of Openflow ports', of_ports
+
+    for port_num, port in of_ports.iteritems():
+        ret, sock = init_pktinout_port(dp, port.name)
+        of_ports[port_num] = of_ports[port_num]._replace(pkt_inout_socket=sock)
+        print ret, ' ', of_ports[port_num].pkt_inout_socket
 
     while of_agent_start() == errno.ECONNREFUSED:
         pass
