@@ -1052,7 +1052,7 @@ def ofp_flow_removed(header, cookie, priority, reason, table_id,
 def ofp_port_status(header, reason, desc):
 	return ofp_(header,
 		_pack("B7x", reason) + _obj(desc),
-		OFP_PORT_STATUS)
+		OFPT_PORT_STATUS)
 
 # 7.4.4
 def ofp_error_msg(header, type, code, data):
