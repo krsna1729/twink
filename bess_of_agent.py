@@ -303,4 +303,6 @@ if __name__ == "__main__":
     t2.setDaemon(True)
     t2.start()
 
+    nova_agent_start()
+
     signal.pause()
