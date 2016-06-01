@@ -7,6 +7,7 @@ import twink.ofp4.oxm as oxm
 import threading
 import binascii
 import logging
+import zerorpc
 import signal
 import socket
 import errno
@@ -17,6 +18,7 @@ from collections import namedtuple
 logging.basicConfig(level=logging.ERROR)
 
 PHY_NAME = "dpif"
+dp = 'bess_datapath_instance'
 
 ofp_port_names = '''port_no hw_addr name config state
                     curr advertised supported peer curr_speed max_speed
@@ -70,6 +72,7 @@ def init_phy_port(bess, name, port_id):
 PKTINOUT_NAME = 'pktinout_%s'
 SOCKET_PATH = '/tmp/bess_unix_' + PKTINOUT_NAME
 
+
 def init_pktinout_port(bess, name):
 
     # br-int alone or vxlan too?
@@ -77,12 +80,13 @@ def init_pktinout_port(bess, name):
         return None, None
 
     try:
+        bess.pause_all()
         result = bess.create_port('UnixSocket', PKTINOUT_NAME % name, {'path': '@' + SOCKET_PATH % name})
-        bess.resume_all()
         s = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
         s.connect('\0' + SOCKET_PATH % name)
     except (bess.APIError, bess.Error, socket.error) as err:
         print err
+        bess.resume_all()
         return {'name': None}, None
     else:
         # TODO: Handle VxLAN PacketOut if Correct/&Reqd. Create PI connect PI_pktinout_vxlan-->Encap()-->PO_dpif
@@ -92,6 +96,27 @@ def init_pktinout_port(bess, name):
             bess.connect_modules('PI_' + PKTINOUT_NAME % name, 'PO_' + name)
         bess.resume_all()
         return result, s
+
+
+def deinit_pktinout_port(bess, name):
+
+    # br-int alone or vxlan too?
+    if name == 'br-int':
+        return
+
+    try:
+        bess.pause_all()
+        # TODO: Handle VxLAN PacketOut if Correct/&Reqd. Create PI connect PI_pktinout_vxlan-->Encap()-->PO_dpif
+        if name != 'vxlan':
+            bess.disconnect_modules('PI_' + PKTINOUT_NAME % name, 0)
+            bess.destroy_module('PI_' + PKTINOUT_NAME % name)
+            bess.destroy_module('PO_' + name)
+            bess.destroy_port(PKTINOUT_NAME % name)
+        bess.resume_all()
+        return
+    except (bess.APIError, bess.Error)as err:
+        bess.resume_all()
+        print err.message
 
 
 def switch_proc(message, ofchannel):
@@ -137,9 +162,12 @@ def switch_proc(message, ofchannel):
         index = msg.actions[0].port
         print "Packet out OF Port %d, Len:%d" % (index, len(msg.data))
         sock = of_ports[index].pkt_inout_socket
-        sent = sock.send(msg.data)
-        if sent != len(msg.data):
-            print "Incomplete Transmission Sent:%d, Len:%d" % (sent, len(msg.data))
+        if sock is not None:
+            sent = sock.send(msg.data)
+            if sent != len(msg.data):
+                print "Incomplete Transmission Sent:%d, Len:%d" % (sent, len(msg.data))
+        else:
+            print "Packet out OF Port %d, Len:%d. Failed - Null socket" % (index, len(msg.data))
 
     elif msg.header.type == OFPT_HELLO:
         pass
@@ -183,6 +211,58 @@ def of_agent_start(ctl_ip='127.0.0.1', port=6653):
     t1.start()
 
 
+class PortManager(object):
+    def __init__(self):
+        self.of_port_num = 2
+
+    def add_port(self, dev, mac):
+        if (self.of_port_num + 1) == OFPP_LOCAL:
+            return "Unable to add dev: %s. Reached max OF port_num" % dev
+
+        self.of_port_num += 1
+        # Create vhost-user port
+        ret = dp.create_port('vhost_user', dev)
+        # Create corresponding pkt_in_out port
+        ret, sock = init_pktinout_port(dp, dev)
+        of_ports[self.of_port_num] = default_port._replace(
+            port_no=self.of_port_num, hw_addr=binascii.a2b_hex(mac[:12]), name=dev, pkt_inout_socket=sock)
+
+        ofp = of_ports[self.of_port_num]
+        channel.send(b.ofp_port_status(b.ofp_header(4, OFPT_PORT_STATUS, 0, 0), OFPPR_ADD,
+                                       b.ofp_port(ofp.port_no, ofp.hw_addr, ofp.name, ofp.config, ofp.state,
+                                                  ofp.curr, ofp.advertised, ofp.supported, ofp.peer, ofp.curr_speed, ofp.max_speed
+                                                  )))
+
+        print 'Current OF ports:\n', of_ports
+        return "Successfully added dev: %s with MAC: %s as ofport:%d" % (dev, mac, self.of_port_num)
+
+    def del_port(self, dev):
+        for port_no, port_details in of_ports.iteritems():
+            if port_details.name == dev:
+                ofp = of_ports[port_no]
+                channel.send(b.ofp_port_status(b.ofp_header(4, OFPT_PORT_STATUS, 0, 0), OFPPR_DELETE,
+                                               b.ofp_port(ofp.port_no, ofp.hw_addr, ofp.name, ofp.config, ofp.state,
+                                                          ofp.curr, ofp.advertised, ofp.supported, ofp.peer,
+                                                          ofp.curr_speed, ofp.max_speed
+                                                          )))
+                deinit_pktinout_port(dp, port_details.name)
+                dp.destroy_port(dev)
+                del of_ports[port_no]
+                print 'Current OF ports:\n', of_ports
+                return "Successfully deleted dev: %s which was ofport: %d" % (dev, port_no)
+
+        return "Unable to locate dev: %s" % dev
+
+
+def nova_agent_start():
+    s = zerorpc.Server(PortManager())
+    s.bind("tcp://0.0.0.0:10515")
+    print "Port Manager listening on 10515"
+
+    #blocks?
+    s.run()
+
+
 def print_stupid():
     while 1:
         print "#######################  Stupid  #######################"
@@ -218,8 +298,6 @@ if __name__ == "__main__":
     while of_agent_start() == errno.ECONNREFUSED:
         pass
 
-
-    # TODO: Connect to BESS and create PACKET_[IN,OUT] ports using UNIX socket for all non-LOCAL ports
     # TODO: Start a thread that will select poll on all of those UNIX sockets
     t2 = threading.Thread(name="Stupid Thread", target=print_stupid)
     t2.setDaemon(True)
