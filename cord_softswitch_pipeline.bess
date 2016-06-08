@@ -33,17 +33,8 @@ t0_inport::ExactMatch(fields=[{'name':'in_port', 'size':1}],
 t0_p2::BPF()
 t0_default::BPF()
 
-
-t1_start::ExactMatch(fields=[{'name':'in_port', 'size':1}],
-                     size=4096)
-t1_in1::ExactMatch(fields=[{'offset':IPSRC, 'size':4}],
-                   size=4096)
-t1_in2::ExactMatch(fields=[{'offset':IPSRC, 'size':4}],
-                   size=4096)
-t1_in3::ExactMatch(fields=[{'offset':IPSRC, 'size':4}],
-                   size=4096)
-t1_in4::ExactMatch(fields=[{'offset':IPSRC, 'size':4}],
-                   size=4096)
+t1_start::WildcardMatch(fields=[{'name':'in_port', 'size':1},
+                                {'offset':IPSRC, 'size':4}])
 
 
 t2_start::ExactMatch(fields=[{'offset':IPSRC, 'size':4,'mask':0xFF000000},
@@ -141,46 +132,31 @@ t0_default:0 -> t1_start
 
 
 ## t1_start
-t1_start:1 -> t1_in1
-t1_start.add(fields=[bytearray(chr(1))], gate=1)
-t1_start:2 -> t1_in2
-t1_start.add(fields=[bytearray(chr(2))], gate=2)
-t1_start:3 -> t1_in3
-t1_start.add(fields=[bytearray(chr(3))], gate=3)
-t1_start:4 -> t1_in4
-t1_start.add(fields=[bytearray(chr(4))], gate=4)
-t1_start:0 -> Sink()
-t1_start.set_default_gate(0)
-
-
-## t1_in1
-# table=1 priority=5000 in_port=1 actions=goto_table:5
-t1_in1.set_default_gate(0)
-t1_in1:0 -> t5_start
-
-
-## t1_in2
-# table=1 priority=5000 in_port=2 actions=goto_table:4
-t1_in2.set_default_gate(0)
-t1_in2:0 -> t4_start
-
-
-## t1_in3
+# table=1 priority=5000 in_port=1                      actions=goto_table:5
+t1_start.add(values=[1,    aton_ip('0.0.0.0')], gate=0,
+             masks= [0xff, aton_ip('0.0.0.0')], priority=5000)
+t1_start:0 -> t5_start
+# table=1 priority=5000 in_port=2                      actions=goto_table:4
+t1_start.add(values=[2,    aton_ip('0.0.0.0')], gate=1,
+             masks= [0xff, aton_ip('0.0.0.0')], priority=5000)
+t1_start:1 -> t4_start
 # table=1 priority=5000 ip in_port=3 nw_src=10.10.10.3 actions=goto_table:2
-t1_in3.add(fields=[aton_ip('10.10.10.3')], gate=1)
-t1_in3:1 -> t2_start
-# table=1 priority=4000 in_port=3 actions=goto_table:3
-t1_in3.set_default_gate(0)
-t1_in3:0 -> t3_start
-
-
-## t1_in4
+t1_start.add(values=[3,    aton_ip('10.10.10.3')], gate=2,
+             masks= [0xff, aton_ip('255.255.255.255')], priority=5000)
+t1_start:2 -> t2_start
 # table=1 priority=5000 ip in_port=4 nw_src=10.10.12.3 actions=goto_table:2
-t1_in4.add(fields=[aton_ip('10.10.12.3')], gate=1)
-t1_in4:1 -> t2_start
-# table=1 priority=4000 in_port=4 actions=goto_table:3
-t1_in4.set_default_gate(0)
-t1_in4:0 -> t3_start
+t1_start.add(values=[4,    aton_ip('10.10.12.3')], gate=2,
+             masks= [0xff, aton_ip('255.255.255.255')], priority=5000)
+# table=1 priority=4000 in_port=3                      actions=goto_table:3
+t1_start.add(values=[3,    aton_ip('0.0.0.0')], gate=3,
+             masks= [0xff, aton_ip('0.0.0.0')], priority=4000)
+t1_start:3 -> t3_start
+# table=1 priority=4000 in_port=4                      actions=goto_table:3
+t1_start.add(values=[3,    aton_ip('0.0.0.0')], gate=3,
+             masks= [0xff, aton_ip('0.0.0.0')], priority=4000)
+# otherwise drop
+t1_start.set_default_gate(4)
+t1_start:4 -> Sink()
 
 
 ## t2_start
