@@ -37,14 +37,9 @@ t1_start::WildcardMatch(fields=[{'name':'in_port', 'size':1},
                                 {'offset':IPSRC, 'size':4}])
 
 
-t2_start::ExactMatch(fields=[{'offset':IPSRC, 'size':4,'mask':0xFF000000},
-                             {'offset':IPDST, 'size':4}],
-                     size=4096)
-t2_B::ExactMatch(fields=[{'offset':IPSRC, 'size':4,'mask':0xFF000000},
-                         {'offset':IPDST, 'size':4,'mask':0xFF000000}],
-                 size=4096)
-t2_C::ExactMatch(fields=[{'offset':IPSRC, 'size':4,'mask':0xFF000000}],
-                 size=4096)
+t2_start::WildcardMatch(fields=[{'offset':IPSRC, 'size':4},
+                                {'offset':IPDST, 'size':4}],
+                        size=4096)
 
 
 t3_start::ExactMatch(fields=[{'name':'in_port', 'size':1}],
@@ -159,39 +154,35 @@ t1_start.set_default_gate(4)
 t1_start:4 -> Sink()
 
 
+
 ## t2_start
 # table=2 priority=50000 ip nw_src=10.10.10.0/24 nw_dst=10.10.12.1 actions=group:2953848289
-t2_start.add(fields=[aton_ip('10.10.10.0'),aton_ip('10.10.12.1')], gate=1)
+t2_start.add(values=[aton_ip('10.10.10.0'),    aton_ip('10.10.12.1')], gate=1,
+             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.255')], priority=50000)
 t2_start:1 -> grp_start
-# otherwise match on stage B
-t2_start.set_default_gate(0)
-t2_start:0 -> t2_B
-
-
-## t2_B
 # table=2 priority=5000 ip nw_src=10.10.12.0/24 nw_dst=10.10.12.0/24 actions=goto_table:4
-t2_B.add(fields=[aton_ip('10.10.12.0'),aton_ip('10.10.12.0')], gate=1)
-t2_B:1 -> t4_start
+t2_start.add(values=[aton_ip('10.10.12.0'),    aton_ip('10.10.12.0')], gate=2,
+             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], priority=5000)
+t2_start:2 -> t4_start
 # table=2 priority=5000 ip nw_src=10.10.12.0/24 nw_dst=10.10.10.0/24 actions=goto_table:4
-t2_B.add(fields=[aton_ip('10.10.12.0'),aton_ip('10.10.10.0')], gate=1)
+t2_start.add(values=[aton_ip('10.10.12.0'),    aton_ip('10.10.10.0')], gate=2,
+             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], priority=5000)
 #table=2 priority=5000 ip nw_src=10.10.10.0/24 nw_dst=10.10.12.0/24 actions=goto_table:4
-t2_B.add(fields=[aton_ip('10.10.10.0'),aton_ip('10.10.12.0')], gate=1)
+t2_start.add(values=[aton_ip('10.10.10.0'),    aton_ip('10.10.12.0')], gate=2,
+             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], priority=5000)
 # table=2 priority=5000 ip nw_src=10.10.10.0/24 nw_dst=10.10.10.0/24 actions=goto_table:4
-t2_B.add(fields=[aton_ip('10.10.10.0'),aton_ip('10.10.10.0')], gate=1)
-# otherwise match on stage C
-t2_B.set_default_gate(0)
-t2_B:0 -> t2_C
-
-
-## t2_C
+t2_start.add(values=[aton_ip('10.10.10.0'),    aton_ip('10.10.10.0')], gate=2,
+             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], priority=5000)
 # table=2 priority=4000 ip nw_dst=10.10.10.0/24 actions=drop
-t2_C.add(fields=[aton_ip('10.10.10.0')], gate=1)
-t2_C:1 -> Sink()
+t2_start.add(values=[aton_ip('0.0.0.0'),    aton_ip('10.10.10.0')], gate=3,
+             masks= [aton_ip('0.0.0.0'), aton_ip('255.255.255.0')], priority=4000)
+t2_start:3 -> Sink()
 # table=2 priority=4000 ip nw_dst=10.10.12.0/24 actions=drop
-t2_C.add(fields=[aton_ip('10.10.12.0')], gate=1)
+t2_start.add(values=[aton_ip('0.0.0.0'),    aton_ip('10.10.12.0')], gate=3,
+             masks= [aton_ip('0.0.0.0'), aton_ip('255.255.255.0')], priority=4000)
 # table=2 priority=0 actions=output:2
-t2_C.set_default_gate(0)
-t2_C:0 -> OUT2
+t2_start.set_default_gate(0)
+t2_start:0 -> OUT2
 
 
 ## t3_start
