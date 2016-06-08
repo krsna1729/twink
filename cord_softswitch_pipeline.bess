@@ -31,7 +31,6 @@ t0_start::BPF()
 t0_inport::ExactMatch(fields=[{'name':'in_port', 'size':1}],
                       size=4096)
 t0_p2::BPF()
-t0_lcl::BPF()
 t0_default::BPF()
 
 
@@ -94,7 +93,8 @@ t0_inport.add(fields=[bytearray(chr(2))], gate=1)
 t0_inport:1  -> t0_p2
 # LOCAL to t0_local
 t0_inport.add(fields=[bytearray(chr(101))], gate=2)
-t0_inport:2  -> t0_lcl
+#table=0 priority=50000	in_port=LOCAL actions=output:2
+t0_inport:2  -> OUT2
 # everything else to t0_default
 t0_inport.set_default_gate(0)
 t0_inport:0  -> t0_default
@@ -116,16 +116,6 @@ t0_p2.add([{'priority' : 50000,
             'gate'     : 1 }])
 # otherwise go to default table
 t0_p2:0      -> t0_default
-
-
-## t0_lcl
-#table=0 priority=50000	in_port=LOCAL actions=output:2
-t0_lcl.add([{'priority' : 50000,
-             'filter'   : 'arp and dst host 1.1.1.1',
-             'gate'     : 1 }])
-t0_lcl:1     -> OUT2
-# otherwise go to default table
-t0_lcl:0     -> t0_default
 
 
 ## t0_default
