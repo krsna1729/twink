@@ -277,8 +277,8 @@ t5_start.add(fields=[bytearray(aton_tunid(0x406)),bytearray(aton_mac('fa:16:3e:3
              gate=1)
 t5_start:1 -> OUT3
 # table=5 priority=5000 tun_id=0x40c dl_dst=fa:16:3e:cf:f2:56 actions=output:4
-t5_start.add(fields=[bytearray(aton_tunid(0x40c)),bytearray(aton_mac('fa:16:3e:3e:82:e8'))],
-             gate=1)
+t5_start.add(fields=[bytearray(aton_tunid(0x40c)),bytearray(aton_mac('fa:16:3e:cf:f2:56'))],
+             gate=2)
 t5_start:2 -> OUT4
 # otherwise drop
 t5_start.set_default_gate(0)
