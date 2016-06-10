@@ -90,10 +90,14 @@ grp_start::HashLB(2)
 ### Set module state
 ## t0_start
 #table=0 priority=55000 vlan_tci=0x1000/0x1000 actions=goto_table:6
-t0_start.add(values=[TYPE_VLAN, 0x1000], gate=1,
-             masks= [0xffff,    0x1000], priority=55000)
-t0_start.add(values=[TYPE_QINQ, 0x1000], gate=1,
-             masks= [0xffff,    0x1000], priority=55000)
+t0_start.add(priority=55000,
+             values=[TYPE_VLAN, 0x1000], 
+             masks= [0xffff,    0x1000], 
+             gate=1)
+t0_start.add(priority=55000,
+             values=[TYPE_QINQ, 0x1000], 
+             masks= [0xffff,    0x1000],
+             gate=1)
 t0_start:1      -> t6_start
 # otherwise go to inport table
 t0_start:0      -> t0_inport
@@ -103,9 +107,8 @@ t0_start:0      -> t0_inport
 # port 2 to t0_p2
 t0_inport.add(fields=[bytearray(chr(2))], gate=1)
 t0_inport:1  -> t0_p2
-# LOCAL to t0_local
-t0_inport.add(fields=[bytearray(chr(101))], gate=2)
 #table=0 priority=50000	in_port=LOCAL actions=output:2
+t0_inport.add(fields=[bytearray(chr(101))], gate=2)
 t0_inport:2  -> OUT2
 # everything else to t0_default
 t0_inport.set_default_gate(0)
@@ -154,27 +157,39 @@ t0_default:0 -> t1_start
 
 ## t1_start
 # table=1 priority=5000 in_port=1                      actions=goto_table:5
-t1_start.add(values=[1,    aton_ip('0.0.0.0')], gate=0,
-             masks= [0xff, aton_ip('0.0.0.0')], priority=5000)
+t1_start.add(priority=5000,
+             values  =[1,    aton_ip('0.0.0.0')],
+             masks   =[0xff, aton_ip('0.0.0.0')],
+             gate    =0)
 t1_start:0 -> t5_start
 # table=1 priority=5000 in_port=2                      actions=goto_table:4
-t1_start.add(values=[2,    aton_ip('0.0.0.0')], gate=1,
-             masks= [0xff, aton_ip('0.0.0.0')], priority=5000)
+t1_start.add(priority=5000,
+             values=[2,    aton_ip('0.0.0.0')], 
+             masks= [0xff, aton_ip('0.0.0.0')], 
+             gate=1)
 t1_start:1 -> t4_start
 # table=1 priority=5000 ip in_port=3 nw_src=10.10.10.3 actions=goto_table:2
-t1_start.add(values=[3,    aton_ip('10.10.10.3')], gate=2,
-             masks= [0xff, aton_ip('255.255.255.255')], priority=5000)
+t1_start.add(priority=5000,
+             values=[3,    aton_ip('10.10.10.3')], 
+             masks= [0xff, aton_ip('255.255.255.255')], 
+             gate=2)
 t1_start:2 -> t2_start
 # table=1 priority=5000 ip in_port=4 nw_src=10.10.12.3 actions=goto_table:2
-t1_start.add(values=[4,    aton_ip('10.10.12.3')], gate=2,
-             masks= [0xff, aton_ip('255.255.255.255')], priority=5000)
+t1_start.add(priority=5000,
+             values=[4,    aton_ip('10.10.12.3')], 
+             masks= [0xff, aton_ip('255.255.255.255')], 
+             gate=2)
 # table=1 priority=4000 in_port=3                      actions=goto_table:3
-t1_start.add(values=[3,    aton_ip('0.0.0.0')], gate=3,
-             masks= [0xff, aton_ip('0.0.0.0')], priority=4000)
+t1_start.add(priority=4000,
+             values=[3,    aton_ip('0.0.0.0')], 
+             masks= [0xff, aton_ip('0.0.0.0')], 
+             gate=3)
 t1_start:3 -> t3_start
 # table=1 priority=4000 in_port=4                      actions=goto_table:3
-t1_start.add(values=[3,    aton_ip('0.0.0.0')], gate=3,
-             masks= [0xff, aton_ip('0.0.0.0')], priority=4000)
+t1_start.add(priority=4000,
+             values=[3,    aton_ip('0.0.0.0')], 
+             masks= [0xff, aton_ip('0.0.0.0')], 
+             gate=3)
 # otherwise drop
 t1_start.set_default_gate(4)
 t1_start:4 -> Sink()
