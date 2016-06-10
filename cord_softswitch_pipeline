@@ -80,9 +80,11 @@ if __name__ == '__main__':
     name='OUT'
     for i in range(1,5):
         B.create_module('Sink', name=name + str(i), arg=None)
+    name='DRP'
+    for i in range(1,6):
+        B.create_module('Sink', name=name + str(i), arg=None)
     B.create_module('Sink', name='LCL', arg=None)
     B.create_module('Sink', name='CTL', arg=None)
-    B.create_module('Sink', name='DROP', arg=None)
     
     B.create_module('WildcardMatch',
                     name='t0_start',
@@ -172,15 +174,15 @@ if __name__ == '__main__':
         B.connect_modules('t1_start'  , 't4_start' , 1, 0)
         B.connect_modules('t1_start'  , 't2_start' , 2, 0)
         B.connect_modules('t1_start'  , 't3_start' , 3, 0)
-        B.connect_modules('t1_start'  , 'DROP'     , 4, 0)
+        B.connect_modules('t1_start'  , 'DRP1'     , 4, 0)
 
         B.connect_modules('t2_start'  , 'grp_start', 1, 0)
         B.connect_modules('t2_start'  , 't4_start' , 2, 0)
-        B.connect_modules('t2_start'  , 'DROP'     , 3, 0)
+        B.connect_modules('t2_start'  , 'DRP2'     , 3, 0)
         B.connect_modules('t2_start'  , 'OUT2'     , 0, 0)
 
         B.connect_modules('t3_start'  , 'grp_start', 1, 0)
-        B.connect_modules('t3_start'  , 'DROP'     , 0, 0)
+        B.connect_modules('t3_start'  , 'DRP3'     , 0, 0)
 
         B.connect_modules('t4_start'  , 't4u1'     , 1, 0)
         B.connect_modules('t4u1'      , 'OUT4'     , 0, 0)
@@ -193,7 +195,7 @@ if __name__ == '__main__':
 
         B.connect_modules('t5_start'  , 'OUT3'     , 1, 0)
         B.connect_modules('t5_start'  , 'OUT4'     , 2, 0)
-        B.connect_modules('t5_start'  , 'DROP'     , 0, 0)
+        B.connect_modules('t5_start'  , 'DRP4'     , 0, 0)
 
         B.connect_modules('t6_start'  , 'CTL'      , 1, 0)
         B.connect_modules('t6_start'  , 'vlan_pop' , 2, 0)
