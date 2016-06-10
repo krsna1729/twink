@@ -1,0 +1,175 @@
+#!/usr/bin/env python2.7
+import sys
+import os
+import os.path
+import pprint
+import cStringIO
+
+HWSRC  ={'offset' :  0,
+         'size'   :  6}
+HWDST  ={'offset' :  6,
+         'size'   :  6}
+ETHTYPE={'offset' : 12,
+         'size'   :  2}
+VLANID ={'offset' : 14,
+         'size'   :  2}
+IPSRC  ={'offset' : 26,
+         'size'   :  4}
+IPDST  ={'offset' : 30,
+         'size'   :  4}
+
+INPORT ={'name'   : 'in_port',
+         'size'   :  1}
+TUNID  ={'name'   : 'tun_id',
+         'size'   :  2}
+TUNDST ={'name'   : 'tun_dst',
+         'size'   :  4} 
+
+TYPE_QINQ=0x88A8
+TYPE_VLAN=0x8100
+
+
+LIBBESS='~/bess/libbess-python'
+
+try:
+    this_dir = os.path.expanduser(LIBBESS)
+    sys.path.insert(1, this_dir)
+    from bess import *
+except ImportError:
+    print >> sys.stderr, 'Cannot import the API module (libbess-python)'
+
+    
+def connect_bess():
+    B = BESS()
+    try:
+        B.connect()
+    except B.APIError as e:
+        print >> sys.stderr, e.message
+    return B
+
+if __name__ == '__main__':
+    B = connect_bess()
+    if B.is_connected():
+        print '%s:%d' % B.peer
+    else:
+        print '<disconnected>'
+
+    B.pause_all()
+    B.reset_all()
+    B.resume_all()
+        
+    name='OUT'
+    for i in range(1,5):
+        B.create_module('Sink', name=name + str(i), arg=None)
+    B.create_module('Sink', name='LCL', arg=None)
+    B.create_module('Sink', name='CTL', arg=None)
+    
+    B.create_module('WildcardMatch',
+                    name='t0_start',
+                    arg={'fields' : [ETHTYPE,VLANID],
+                         'size' : 4096})
+    B.create_module('ExactMatch',
+                    name='t0_inport',
+                    arg={'fields' : [INPORT],
+                         'size' : 4096})
+    B.create_module('BPF', name='t0_p2')
+    B.create_module('BPF', name='t0_default')
+
+
+    B.create_module('WildcardMatch',
+                    name='t1_start',
+                    arg={'fields' : [INPORT,IPSRC],
+                         'size' : 4096})
+
+    
+    B.create_module('WildcardMatch',
+                    name='t2_start',
+                    arg={'fields' : [IPSRC,IPDST],
+                         'size' : 4096})
+
+    
+
+    B.create_module('ExactMatch',
+                    name='t3_start',
+                    arg={'fields' : [INPORT],
+                         'size' : 4096})
+
+    
+    B.create_module('ExactMatch',
+                    name='t4_start',
+                    arg={'fields' : [IPDST],
+                         'size' : 4096})
+
+
+    B.create_module('ExactMatch',
+                    name='t5_start',
+                    arg={'fields' : [TUNID,HWSRC],
+                         'size' : 4096})
+
+    
+    B.create_module('BPF', name='t6_start')
+
+
+    B.create_module('HashLB',
+                    name='grp_start',
+                    arg=2)
+    
+    B.pause_all()
+    try:
+        B.connect_modules('t0_start', 't6_start', 1, 0)
+        B.connect_modules('t0_start', 't0_inport', 0, 0)
+        
+        B.connect_modules('t0_inport', 't0_p2', 1, 0)
+        B.connect_modules('t0_inport', 'OUT2', 2, 0)
+        B.connect_modules('t0_inport', 't0_default', 0, 0)
+        
+        B.connect_modules('t0_p2', 'LCL', 1, 0)
+        B.connect_modules('t0_p2', 't0_default', 0, 0)
+        
+        B.connect_modules('t0_default', 'CTL', 1, 0)
+        B.connect_modules('t0_default', 't1_start', 0, 0)
+        
+    finally:
+        B.resume_all()    
+
+    B.run_module_command('t0_start','add', {'priority' : 55000,
+                                            'values'   : [TYPE_VLAN, 0x1000],
+                                            'masks'    : [0xffff,    0x1000],
+                                            'gate'     : 1 })
+    B.run_module_command('t0_start','add', {'priority' : 55000,
+                                            'values'   : [TYPE_QINQ, 0x1000],
+                                            'masks'    : [0xffff,    0x1000],
+                                            'gate'     : 1 })
+    
+    
+    B.run_module_command('t0_inport','add', {'fields'  : [bytearray(chr(2))],
+                                             'gate'    : 1})
+    
+    B.run_module_command('t0_inport','add', {'fields'  : [bytearray(chr(101))],
+                                             'gate'    : 2})
+    
+    B.run_module_command('t0_p2','add', [{'priority' : 50000,
+                                          'filter'   : 'ip and dst host 1.1.1.1',
+                                          'gate'     : 1 }])
+    B.run_module_command('t0_p2','add', [{'priority' : 50000,
+                                          'filter'   : 'arp and dst host 1.1.1.1',
+                                          'gate'     : 1 }])
+    B.run_module_command('t0_p2','add', [{'priority' : 50000,
+                                          'filter'   : 'udp and dst port 4789',
+                                          'gate'     : 1 }])
+    
+    B.run_module_command('t0_default','add', [{'priority' : 40000,
+                                               'filter'   : 'udp and src port 68 and dst port 67',
+                                               'gate'     : 1 }])
+    B.run_module_command('t0_default','add', [{'priority' : 40000,
+                                               'filter'   : 'ether proto 0x88cc',
+                                               'gate'     : 1 }])
+    B.run_module_command('t0_default','add', [{'priority' : 40000,
+                                               'filter'   : 'ether proto 0x8942',
+                                               'gate'     : 1 }])
+    B.run_module_command('t0_default','add', [{'priority' : 40000,
+                                               'filter'   : 'arp',
+                                               'gate'     : 1 }])
+    
+
+        
