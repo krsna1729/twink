@@ -152,6 +152,11 @@ if __name__ == '__main__':
         B.connect_modules('t1_start'  , 't2_start' , 2, 0)
         B.connect_modules('t1_start'  , 't3_start' , 3, 0)
         B.connect_modules('t1_start'  , 'DROP'     , 4, 0)
+
+        B.connect_modules('t2_start'  , 'grp_start', 1, 0)
+        B.connect_modules('t2_start'  , 't4_start' , 2, 0)
+        B.connect_modules('t2_start'  , 'DROP'     , 3, 0)
+        B.connect_modules('t2_start'  , 'OUT2'     , 0, 0)
         
     finally:
         B.resume_all()    
@@ -237,3 +242,42 @@ if __name__ == '__main__':
                                             'gate'     : 3 })
     # otherwise drop
     B.run_module_command('t1_start','set_default_gate', 4)
+
+    # table=2 priority=50000 ip nw_src=10.10.10.0/24 nw_dst=10.10.12.1 actions=group:2953848289
+    B.run_module_command('t2_start','add', {'priority' : 50000,
+                                            'values'   : [aton_ip('10.10.10.0'),    aton_ip('10.10.12.1')], 
+                                            'masks'    : [aton_ip('255.255.255.0'), aton_ip('255.255.255.255')], 
+                                            'gate'     : 1})
+    # table=2 priority=5000 ip nw_src=10.10.12.0/24 nw_dst=10.10.12.0/24 actions=goto_table:4
+    B.run_module_command('t2_start','add', {'priority' : 5000,
+                                            'values'   : [aton_ip('10.10.12.0'),    aton_ip('10.10.12.0')], 
+                                            'masks'    : [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')],
+                                            'gate'     : 2})
+    # table=2 priority=5000 ip nw_src=10.10.12.0/24 nw_dst=10.10.10.0/24 actions=goto_table:4
+    B.run_module_command('t2_start','add', {'priority' : 5000,
+                                            'values'   : [aton_ip('10.10.12.0'),    aton_ip('10.10.10.0')], 
+                                            'masks'    : [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')],
+                                            'gate'     : 2})
+    # table=2 priority=5000 ip nw_src=10.10.10.0/24 nw_dst=10.10.12.0/24 actions=goto_table:4
+    B.run_module_command('t2_start','add', {'priority' : 5000,
+                                            'values'   : [aton_ip('10.10.10.0'),    aton_ip('10.10.12.0')], 
+                                            'masks'    : [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')],
+                                            'gate'     :  2})
+    # table=2 priority=5000 ip nw_src=10.10.10.0/24 nw_dst=10.10.10.0/24 actions=goto_table:4
+    B.run_module_command('t2_start','add', {'priority' : 5000,
+                                            'values'   : [aton_ip('10.10.10.0'),    aton_ip('10.10.10.0')], 
+                                            'masks'    : [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')],
+                                            'gate'     : 2})
+    # table=2 priority=4000 ip nw_dst=10.10.10.0/24 actions=drop
+    B.run_module_command('t2_start','add', {'priority' : 4000,
+                                            'values'   : [aton_ip('0.0.0.0'),    aton_ip('10.10.10.0')], 
+                                            'masks'    : [aton_ip('0.0.0.0'), aton_ip('255.255.255.0')],
+                                            'gate'     : 3})
+    # table=2 priority=4000 ip nw_dst=10.10.12.0/24 actions=drop
+    B.run_module_command('t2_start','add', {'priority' : 4000,
+                                            'values'   : [aton_ip('0.0.0.0'),    aton_ip('10.10.12.0')], 
+                                            'masks'    : [aton_ip('0.0.0.0'), aton_ip('255.255.255.0')],
+                                            'gate'     : 3})
+
+    # table=2 priority=0 actions=output:2
+    B.run_module_command('t2_start','set_default_gate', 0)

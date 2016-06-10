@@ -198,29 +198,43 @@ t1_start:4 -> Sink()
 
 ## t2_start
 # table=2 priority=50000 ip nw_src=10.10.10.0/24 nw_dst=10.10.12.1 actions=group:2953848289
-t2_start.add(values=[aton_ip('10.10.10.0'),    aton_ip('10.10.12.1')], gate=1,
-             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.255')], priority=50000)
+t2_start.add(priority=50000,
+             values=[aton_ip('10.10.10.0'),    aton_ip('10.10.12.1')], 
+             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.255')], 
+             gate=1)
 t2_start:1 -> grp_start
 # table=2 priority=5000 ip nw_src=10.10.12.0/24 nw_dst=10.10.12.0/24 actions=goto_table:4
-t2_start.add(values=[aton_ip('10.10.12.0'),    aton_ip('10.10.12.0')], gate=2,
-             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], priority=5000)
+t2_start.add(priority=5000,
+             values=[aton_ip('10.10.12.0'),    aton_ip('10.10.12.0')], 
+             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], 
+             gate=2)
 t2_start:2 -> t4_start
 # table=2 priority=5000 ip nw_src=10.10.12.0/24 nw_dst=10.10.10.0/24 actions=goto_table:4
-t2_start.add(values=[aton_ip('10.10.12.0'),    aton_ip('10.10.10.0')], gate=2,
-             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], priority=5000)
-#table=2 priority=5000 ip nw_src=10.10.10.0/24 nw_dst=10.10.12.0/24 actions=goto_table:4
-t2_start.add(values=[aton_ip('10.10.10.0'),    aton_ip('10.10.12.0')], gate=2,
-             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], priority=5000)
+t2_start.add(priority=5000,
+             values=[aton_ip('10.10.12.0'),    aton_ip('10.10.10.0')], 
+             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], 
+             gate=2)
+# table=2 priority=5000 ip nw_src=10.10.10.0/24 nw_dst=10.10.12.0/24 actions=goto_table:4
+t2_start.add(priority=5000,
+             values=[aton_ip('10.10.10.0'),    aton_ip('10.10.12.0')], 
+             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], 
+             gate=2)
 # table=2 priority=5000 ip nw_src=10.10.10.0/24 nw_dst=10.10.10.0/24 actions=goto_table:4
-t2_start.add(values=[aton_ip('10.10.10.0'),    aton_ip('10.10.10.0')], gate=2,
-             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], priority=5000)
+t2_start.add(priority=5000,
+             values=[aton_ip('10.10.10.0'),    aton_ip('10.10.10.0')], 
+             masks= [aton_ip('255.255.255.0'), aton_ip('255.255.255.0')], 
+             gate=2)
 # table=2 priority=4000 ip nw_dst=10.10.10.0/24 actions=drop
-t2_start.add(values=[aton_ip('0.0.0.0'),    aton_ip('10.10.10.0')], gate=3,
-             masks= [aton_ip('0.0.0.0'), aton_ip('255.255.255.0')], priority=4000)
+t2_start.add(priority=4000,
+             values=[aton_ip('0.0.0.0'),    aton_ip('10.10.10.0')], 
+             masks= [aton_ip('0.0.0.0'), aton_ip('255.255.255.0')],
+             gate=3)
 t2_start:3 -> Sink()
 # table=2 priority=4000 ip nw_dst=10.10.12.0/24 actions=drop
-t2_start.add(values=[aton_ip('0.0.0.0'),    aton_ip('10.10.12.0')], gate=3,
-             masks= [aton_ip('0.0.0.0'), aton_ip('255.255.255.0')], priority=4000)
+t2_start.add(priority=4000,
+             values=[aton_ip('0.0.0.0'),    aton_ip('10.10.12.0')], 
+             masks= [aton_ip('0.0.0.0'), aton_ip('255.255.255.0')],
+             gate=3)
 # table=2 priority=0 actions=output:2
 t2_start.set_default_gate(0)
 t2_start:0 -> OUT2
