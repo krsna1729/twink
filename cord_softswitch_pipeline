@@ -157,6 +157,9 @@ if __name__ == '__main__':
         B.connect_modules('t2_start'  , 't4_start' , 2, 0)
         B.connect_modules('t2_start'  , 'DROP'     , 3, 0)
         B.connect_modules('t2_start'  , 'OUT2'     , 0, 0)
+
+        B.connect_modules('t3_start'  , 'grp_start', 1, 0)
+        B.connect_modules('t3_start'  , 'DROP'     , 0, 0)
         
     finally:
         B.resume_all()    
@@ -243,6 +246,7 @@ if __name__ == '__main__':
     # otherwise drop
     B.run_module_command('t1_start','set_default_gate', 4)
 
+    
     # table=2 priority=50000 ip nw_src=10.10.10.0/24 nw_dst=10.10.12.1 actions=group:2953848289
     B.run_module_command('t2_start','add', {'priority' : 50000,
                                             'values'   : [aton_ip('10.10.10.0'),    aton_ip('10.10.12.1')], 
@@ -281,3 +285,10 @@ if __name__ == '__main__':
 
     # table=2 priority=0 actions=output:2
     B.run_module_command('t2_start','set_default_gate', 0)
+
+
+    # table=3 priority=5000 in_port=3 actions=group:2953848289
+    B.run_module_command('t0_inport','add', {'fields'  : [bytearray(chr(3))],
+                                            'gate'     : 1})
+    # otherwise drop
+    B.run_module_command('t3_start','set_default_gate', 0)
