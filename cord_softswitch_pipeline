@@ -144,6 +144,7 @@ if __name__ == '__main__':
 
     
     B.create_module('BPF', name='t6_start')
+    B.create_module('VLANPop', name='vlan_pop')
 
 
     B.create_module('HashLB',
@@ -193,6 +194,11 @@ if __name__ == '__main__':
         B.connect_modules('t5_start'  , 'OUT3'     , 1, 0)
         B.connect_modules('t5_start'  , 'OUT4'     , 2, 0)
         B.connect_modules('t5_start'  , 'DROP'     , 0, 0)
+
+        B.connect_modules('t6_start'  , 'CTL'      , 1, 0)
+        B.connect_modules('t6_start'  , 'vlan_pop' , 2, 0)
+        B.connect_modules('vlan_pop'  , 'OUT2'     , 0, 0)
+        B.connect_modules('t6_start'  , 'DRP5'     , 0, 0)
         
     finally:
         B.resume_all()    
@@ -355,3 +361,15 @@ if __name__ == '__main__':
                                             'gate'     : 2})
     # otherwise drop
     B.run_module_command('t5_start','set_default_gate', 0)
+
+
+    # table=6 priority=50000 arp dl_vlan=500 actions=CONTROLLER:65535
+    B.run_module_command('t6_start','add',[{'priority' : 50000,
+                                            'filter'   : 'vlan 500 and arp',
+                                            'gate'     : 1 }])
+    # table=6 priority=5000 dl_vlan=500 actions=pop_vlan output:2
+    B.run_module_command('t6_start','add', [{'priority' : 5000,
+                                             'filter'   : 'vlan 500',
+                                             'gate'     : 2 }])
+    # otherwise drop
+    # BPF automatically sets default gate to 0
