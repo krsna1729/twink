@@ -117,7 +117,23 @@ if __name__ == '__main__':
                     name='t4_start',
                     arg={'fields' : [IPDST],
                          'size' : 4096})
-
+    B.create_module('Update',
+                    name='t4u1',
+                    arg=[set_val(HWDST,'fa:16:3e:cf:f2:56')])
+    B.create_module('Update',
+                    name='t4u2',
+                    arg=[set_val(HWDST,'fa:16:3e:f3:5e:82'),
+                         set_val(TUNID, 0x40c),
+                         set_val(TUNDST,'1.1.1.2')])
+    B.create_module('Update',
+                    name='t4u3',
+                    arg=[set_val(HWDST,'fa:16:3e:da:05:ed'),
+                         set_val(TUNID, 0x406),
+                         set_val(TUNDST, '1.1.1.2')])
+    B.create_module('Update',
+                    name='t4u4',
+                    arg=[set_val(HWDST, 'fa:16:3e:3e:82:e8')])
+    
 
     B.create_module('ExactMatch',
                     name='t5_start',
@@ -160,6 +176,15 @@ if __name__ == '__main__':
 
         B.connect_modules('t3_start'  , 'grp_start', 1, 0)
         B.connect_modules('t3_start'  , 'DROP'     , 0, 0)
+
+        B.connect_modules('t4_start'  , 't4u1'     , 1, 0)
+        B.connect_modules('t4u1'      , 'OUT4'     , 0, 0)
+        B.connect_modules('t4_start'  , 't4u2'     , 2, 0)
+        B.connect_modules('t4u2'      , 'OUT1'     , 0, 0)
+        B.connect_modules('t4_start'  , 't4u3'     , 3, 0)
+        B.connect_modules('t4u3'      , 'OUT1'     , 0, 0)
+        B.connect_modules('t4_start'  , 't4u4'     , 4, 0)
+        B.connect_modules('t4u4'      , 'OUT3'     , 0, 0)
         
     finally:
         B.resume_all()    
@@ -292,3 +317,17 @@ if __name__ == '__main__':
                                             'gate'     : 1})
     # otherwise drop
     B.run_module_command('t3_start','set_default_gate', 0)
+
+
+    # table=4 priority=5000 ip nw_dst=10.10.12.3 actions=set_field:fa:16:3e:cf:f2:56->eth_dst output:4
+    B.run_module_command('t4_start','add', {'fields'  : [bytearray(aton_ip('10.10.12.3'))],
+                                            'gate'     : 1})
+    # table=4 priority=5000 ip nw_dst=10.10.12.2 actions=set_field:fa:16:3e:f3:5e:82->eth_dst set_field:0x40c->tun_id set_field:1.1.1.2->tun_dst output:1
+    B.run_module_command('t4_start','add', {'fields'  : [bytearray(aton_ip('10.10.12.2'))],
+                                            'gate'     : 2})
+    # table=4 priority=5000 ip nw_dst=10.10.10.2 actions=set_field:fa:16:3e:da:05:ed->eth_dst set_field:0x406->tun_id set_field:1.1.1.2->tun_dst output:1
+    B.run_module_command('t4_start','add', {'fields'  : [bytearray(aton_ip('10.10.10.2'))],
+                                            'gate'     : 3})
+    # table=4 priority=5000 ip nw_dst=10.10.10.3 actions=set_field:fa:16:3e:3e:82:e8->eth_dst output:3
+    B.run_module_command('t4_start','add', {'fields'  : [bytearray(aton_ip('10.10.10.3'))],
+                                            'gate'     : 4})
