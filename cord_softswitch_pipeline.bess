@@ -47,9 +47,13 @@ TUNID  ={'name'   : 'tun_id',
 TUNDST ={'name'   : 'tun_dst',
          'size'   :  4} 
 
+TYPE_QINQ=0x88A8
+TYPE_VLAN=0x8100
+
 
 ### Create the modules
-t0_start::BPF()
+t0_start::WildcardMatch(fields=[ETHTYPE,VLANID],
+                        size=4096)
 t0_inport::ExactMatch(fields=[INPORT],
                       size=4096)
 t0_p2::BPF()
@@ -86,9 +90,10 @@ grp_start::HashLB(2)
 ### Set module state
 ## t0_start
 #table=0 priority=55000 vlan_tci=0x1000/0x1000 actions=goto_table:6
-t0_start.add([{'priority' : 55000,
-               'filter'   : 'vlan and vlan',
-               'gate'     : 1 }])
+t0_start.add(values=[TYPE_VLAN, 0x1000], gate=1,
+             masks= [0xffff,    0x1000], priority=55000)
+t0_start.add(values=[TYPE_QINQ, 0x1000], gate=1,
+             masks= [0xffff,    0x1000], priority=55000)
 t0_start:1      -> t6_start
 # otherwise go to inport table
 t0_start:0      -> t0_inport
