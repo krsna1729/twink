@@ -266,7 +266,8 @@ t4_start:3 -> Update([set_val(HWDST,'fa:16:3e:da:05:ed'),
                       set_val(TUNDST, '1.1.1.2')]) -> OUT1 
 
 # table=4 priority=5000 ip nw_dst=10.10.10.3 actions=set_field:fa:16:3e:3e:82:e8->eth_dst output:3
-t4_start.add(fields=[bytearray(aton_ip('10.10.10.2'))], gate=4)
+t4_start.add(fields=[bytearray(aton_ip('10.10.10.3'))],
+             gate=4)
 t4_start:4 -> Update([set_val(HWDST, 'fa:16:3e:3e:82:e8')]) -> OUT3
 
 
