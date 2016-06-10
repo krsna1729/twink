@@ -152,6 +152,14 @@ if __name__ == '__main__':
     B.create_module('HashLB',
                     name='grp_start',
                     arg=2)
+    B.create_module('Update',
+                    name='gru1',
+                    arg=[set_val(HWDST, 'fa:16:3e:f3:5e:82'),
+                         set_val(TUNID, 0x40c),
+                         set_val(TUNDST, '1.1.1.2')])
+    B.create_module('Update',
+                    name='gru2',
+                    arg=[set_val(HWDST, 'fa:16:3e:cf:f2:56')])
 
     
     #### CONNECT MODULES ####
@@ -201,6 +209,11 @@ if __name__ == '__main__':
         B.connect_modules('t6_start'  , 'vlan_pop' , 2, 0)
         B.connect_modules('vlan_pop'  , 'OUT2'     , 0, 0)
         B.connect_modules('t6_start'  , 'DRP5'     , 0, 0)
+
+        B.connect_modules('grp_start' , 'gru1'     , 0, 0)
+        B.connect_modules('gru1'      , 'OUT1'     , 0, 0)
+        B.connect_modules('grp_start' , 'gru2'     , 1, 0)
+        B.connect_modules('gru2'      , 'OUT4'     , 0, 0)
         
     finally:
         B.resume_all()    
@@ -375,3 +388,7 @@ if __name__ == '__main__':
                                              'gate'     : 2 }])
     # otherwise drop
     # BPF automatically sets default gate to 0
+
+
+    # group_id=2953848289 type=select
+    B.run_module_command('grp_start','set_mode', 'l4')
