@@ -40,8 +40,10 @@ IPDST  ={'offset' : 30,
 INPORT ={'name'   : 'in_port',
          'size'   :  1}
 TUNID  ={'name'   : 'tun_id',
-         'size'   :  2}
-TUNDST ={'name'   : 'tun_dst',
+         'size'   :  4}
+TUNSRC ={'name'   : 'tun_ip_src',
+         'size'   :  4}
+TUNDST ={'name'   : 'tun_ip_dst',
          'size'   :  4} 
 
 TYPE_QINQ=0x88A8
@@ -72,7 +74,6 @@ t3_start::ExactMatch(fields=[INPORT],
 t4_start::ExactMatch(fields=[IPDST],
                       size=4096)
 
-
 t5_start::ExactMatch(fields=[TUNID,HWSRC],
                      size=4096)
 
@@ -82,7 +83,7 @@ t6_start::BPF()
 
 grp_start::HashLB(2)
 
-
+encap_and_out1::VXLANEncap() -> IPEncap() -> EtherEncap() -> OUT1
 
 ### Set module state
 ## t0_start
@@ -254,15 +255,17 @@ t4_start:1 -> Update([set_val(HWDST,'fa:16:3e:cf:f2:56')]) -> OUT4
 # table=4 priority=5000 ip nw_dst=10.10.12.2 actions=set_field:fa:16:3e:f3:5e:82->eth_dst set_field:0x40c->tun_id set_field:1.1.1.2->tun_dst output:1
 t4_start.add(fields=[aton_ip('10.10.12.2')],
              gate=2)
-t4_start:2 -> Update([set_val(HWDST,'fa:16:3e:f3:5e:82'),
-                      set_val(TUNID, 0x40c),
-                      set_val(TUNDST,'1.1.1.2')]) -> OUT1 
+t4_start:2 -> Update([set_val(HWDST,'fa:16:3e:f3:5e:82')]) \
+-> SetMetadata([set_val(TUNID, 0x40c),
+                set_val(TUNDST,aton_ip('1.1.1.2'))]) \
+-> encap_and_out1
 # table=4 priority=5000 ip nw_dst=10.10.10.2 actions=set_field:fa:16:3e:da:05:ed->eth_dst set_field:0x406->tun_id set_field:1.1.1.2->tun_dst output:1
 t4_start.add(fields=[aton_ip('10.10.10.2')]
              , gate=3)
-t4_start:3 -> Update([set_val(HWDST,'fa:16:3e:da:05:ed'),
-                      set_val(TUNID, 0x406),
-                      set_val(TUNDST, '1.1.1.2')]) -> OUT1 
+t4_start:3 -> Update([set_val(HWDST,'fa:16:3e:da:05:ed')]) \
+-> SetMetadata([set_val(TUNID, 0x406),
+                set_val(TUNDST,aton_ip('1.1.1.2'))]) \
+-> encap_and_out1
 # table=4 priority=5000 ip nw_dst=10.10.10.3 actions=set_field:fa:16:3e:3e:82:e8->eth_dst output:3
 t4_start.add(fields=[aton_ip('10.10.10.3')],
              gate=4)
@@ -302,9 +305,10 @@ grp_start.set_mode('l4')
 #                     set_field:1.1.1.2->tun_dst
 #                     set_field:0x40c->tun_id
 #                     output:1
-grp_start:0 -> Update([set_val(HWDST, 'fa:16:3e:f3:5e:82'),
-                       set_val(TUNID, 0x40c),
-                       set_val(TUNDST, '1.1.1.2')]) -> OUT1 
+grp_start:0 -> Update([set_val(HWDST, 'fa:16:3e:f3:5e:82')]) \
+-> SetMetadata([set_val(TUNID, 0x40c),
+                set_val(TUNDST,aton_ip('1.1.1.2'))]) \
+-> encap_and_out1
 #     bucket=actions= set_field:fa:16:3e:cf:f2:56->eth_dst
 #                     output:4
 grp_start:1 -> Update([set_val(HWDST, 'fa:16:3e:cf:f2:56')]) -> OUT4
