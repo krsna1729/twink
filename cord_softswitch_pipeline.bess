@@ -1,15 +1,12 @@
 import socket
 
 def aton_ip(ip):
-    return bytearray(socket.inet_aton(ip))
+    return socket.inet_aton(ip)
 
 import struct
 
 def aton_mac(mac):
     return struct.pack('6B', *(int(x,base=16) for x in mac.split(':')))
-
-def aton_tunid(tid):
-    return struct.pack('<H', tid)
 
 def set_val(field, val):
     output = field.copy()
@@ -105,10 +102,10 @@ t0_start:0      -> t0_inport
 
 ## t0_inport
 # port 2 to t0_p2
-t0_inport.add(fields=[bytearray(chr(2))], gate=1)
+t0_inport.add(fields=[2], gate=1)
 t0_inport:1  -> t0_p2
 #table=0 priority=50000	in_port=LOCAL actions=output:2
-t0_inport.add(fields=[bytearray(chr(101))], gate=2)
+t0_inport.add(fields=[101], gate=2)
 t0_inport:2  -> OUT2
 # everything else to t0_default
 t0_inport.set_default_gate(0)
@@ -242,7 +239,7 @@ t2_start:0 -> OUT2
 
 ## t3_start
 # table=3 priority=5000 in_port=3 actions=group:2953848289
-t3_start.add(fields=[bytearray(chr(3))], gate=1)
+t3_start.add(fields=[3], gate=1)
 t3_start:1 -> grp_start
 # otherwise drop
 t3_start.set_default_gate(0)
@@ -251,33 +248,33 @@ t3_start:0 -> Sink()
 
 ## t4_start
 # table=4 priority=5000 ip nw_dst=10.10.12.3 actions=set_field:fa:16:3e:cf:f2:56->eth_dst output:4
-t4_start.add(fields=[bytearray(aton_ip('10.10.12.3'))], gate=1)
+t4_start.add(fields=[aton_ip('10.10.12.3')], gate=1)
 t4_start:1 -> Update([set_val(HWDST,'fa:16:3e:cf:f2:56')]) -> OUT4
 
 # table=4 priority=5000 ip nw_dst=10.10.12.2 actions=set_field:fa:16:3e:f3:5e:82->eth_dst set_field:0x40c->tun_id set_field:1.1.1.2->tun_dst output:1
-t4_start.add(fields=[bytearray(aton_ip('10.10.12.2'))],
+t4_start.add(fields=[aton_ip('10.10.12.2')],
              gate=2)
 t4_start:2 -> Update([set_val(HWDST,'fa:16:3e:f3:5e:82'),
                       set_val(TUNID, 0x40c),
                       set_val(TUNDST,'1.1.1.2')]) -> OUT1 
 # table=4 priority=5000 ip nw_dst=10.10.10.2 actions=set_field:fa:16:3e:da:05:ed->eth_dst set_field:0x406->tun_id set_field:1.1.1.2->tun_dst output:1
-t4_start.add(fields=[bytearray(aton_ip('10.10.10.2'))]
+t4_start.add(fields=[aton_ip('10.10.10.2')]
              , gate=3)
 t4_start:3 -> Update([set_val(HWDST,'fa:16:3e:da:05:ed'),
                       set_val(TUNID, 0x406),
                       set_val(TUNDST, '1.1.1.2')]) -> OUT1 
 # table=4 priority=5000 ip nw_dst=10.10.10.3 actions=set_field:fa:16:3e:3e:82:e8->eth_dst output:3
-t4_start.add(fields=[bytearray(aton_ip('10.10.10.3'))],
+t4_start.add(fields=[aton_ip('10.10.10.3')],
              gate=4)
 t4_start:4 -> Update([set_val(HWDST, 'fa:16:3e:3e:82:e8')]) -> OUT3
 
 
 # table=5 priority=5000 tun_id=0x406 dl_dst=fa:16:3e:3e:82:e8 actions=output:3
-t5_start.add(fields=[bytearray(aton_tunid(0x406)),bytearray(aton_mac('fa:16:3e:3e:82:e8'))],
+t5_start.add(fields=[0x406,aton_mac('fa:16:3e:3e:82:e8')],
              gate=1)
 t5_start:1 -> OUT3
 # table=5 priority=5000 tun_id=0x40c dl_dst=fa:16:3e:cf:f2:56 actions=output:4
-t5_start.add(fields=[bytearray(aton_tunid(0x40c)),bytearray(aton_mac('fa:16:3e:cf:f2:56'))],
+t5_start.add(fields=[0x40c,aton_mac('fa:16:3e:cf:f2:56')],
              gate=2)
 t5_start:2 -> OUT4
 # otherwise drop
