@@ -37,6 +37,14 @@ ofp_ipv6exthdr_flags = type("ofp_ipv6exthdr_flags", (_enum_base,), {
 	"bitshifts": "NONEXT ESP AUTH DEST FRAG ROUTER HOP UNREP UNSEQ"
 	})(globals())
 
+nxm_match_fields = type("nxm_match_fields", (_enum_base,), {
+	"prefix": "NXM_NX",
+	"numbers": {
+		"TUN_IPV4_DST":32,
+	}
+	})(globals())
+assert NXM_NX_TUN_IPV4_DST==32
+
 STRATOS_EXPERIMENTER_ID = 0xFF00E04D
 
 stratos_oxm_fields = type("stratos_oxm_fields", (_enum_base,), {
@@ -105,6 +113,10 @@ def _bits(oxm_field):
 		bits = "B"
 	return bits
 
+def _nxm_basic_bits(nxm_field):
+	if nxm_field in (NXM_NX_TUN_IPV4_DST, ):
+		return "4s"
+
 def _stratos_basic_bits(etype):
 	if etype in (STROXM_BASIC_DOT11, STROXM_BASIC_DOT11_PUBLIC_ACTION, STROXM_BASIC_DOT11_TAG):
 		return "B"
@@ -123,6 +135,7 @@ def _stratos_radiotap_bits(etype):
 		return "Q"
 
 oxm = namedtuple("oxm", "oxm_class oxm_field oxm_hasmask oxm_length oxm_value oxm_mask")
+nxm = namedtuple("nxm", "oxm_class nxm_field nxm_hasmask nxm_length nxm_value nxm_mask")
 stratos = namedtuple("stratos", "oxm_class oxm_field oxm_hasmask oxm_length exp exp_type value mask")
 
 def parse(message, offset=0):
@@ -140,6 +153,17 @@ def parse(message, offset=0):
 		else:
 			assert oxm_length == struct.calcsize(bits)
 			return oxm(oxm_class, oxm_field, oxm_hasmask, oxm_length, struct.unpack_from("!"+bits, message, offset)[0], None)
+	elif oxm_class == OFPXMC_NXM_1:
+		bits = _nxm_basic_bits(oxm_field)
+
+		if oxm_hasmask:
+			assert oxm_length == struct.calcsize("!" + bits * 2)
+			return nxm(oxm_class, oxm_field, oxm_hasmask, oxm_length,
+					   *struct.unpack_from("!" + bits * 2, message, offset))
+		else:
+			assert oxm_length == struct.calcsize(bits)
+			return nxm(oxm_class, oxm_field, oxm_hasmask, oxm_length,
+					   struct.unpack_from("!" + bits, message, offset)[0], None)
 	elif oxm_class == OFPXMC_EXPERIMENTER:
 		exp = struct.unpack_from("!I", message, offset)[0]
 		offset += 4
